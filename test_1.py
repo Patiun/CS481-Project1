@@ -4,9 +4,10 @@ import copy, random, pprint
 # TRANSITION class
 class Transition(object):
 
-	def __init__(self,goToState,probability=0.0):
+	def __init__(self,goToState,probability=0.0,confidence=100000):
 		self.nextState = goToState
 		self.probability = probability
+		self.confidence = confidence
 		self.isTemporary = False
 		self.isPermanent = False
 
@@ -19,8 +20,14 @@ class Transition(object):
 	def getNextState(self):
 		return self.nextState
 
-	def changeNextState(state):
+	def changeNextState(self,state):
 		self.nextState = state
+
+	def getConfidence(self):
+		return self.confidence
+
+	def setConfidence(self,confidence):
+		self.confidence = confidence
 
 	def getProbability(self):
 		return self.probability
