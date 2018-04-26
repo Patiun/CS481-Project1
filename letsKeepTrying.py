@@ -333,6 +333,10 @@ class Transition(object):
 	def GetConfidence(self):
 		return self.Confidence
 
+	'''Sets the confidence'''
+	def SetConfidence(self, value):
+		self.Confidence = value
+
 	'''returns the expectation value with transition, if E(t1,t2) does not exist it returns None'''
 	def GetExpectationWith(self,transition):
 		if transition not in self.E.keys():
@@ -376,8 +380,14 @@ def main():
 	SIGMA = [EPSILON,'a','b']
 	DELTA = [EPSILON,'alpha','beta']
 	m = Model(SIGMA,DELTA,eta=0.2)
-	s = State(0)
-	m.Start(s)
+	s0 = State(0)
+	s1 = State(1)
+	t = Transition(s0,s1)
+	t.GenerateNew(m.eta,DELTA)
+	t.SetConfidence (100)
+	s0.AddTransitionOn('a',t)
+	m.Q = m.Q + [s1]
+	m.Start(s0)
 	#GetInput()
 
 '''Gets input from user in form of symbol:strength pairs seperated by commas
