@@ -1,0 +1,63 @@
+--------- Status --------
+Sigma: ['', 'a', 'b', 'c', 'd']
+Delta: ['', 'alpha', 'beta', 'gamma', 'delta', 'eta']
+
+------- I/O -------------
+Last Input: [['b', 0.5]]
+Current Input: [['c', 0.5]]
+Last Output: beta
+Current Output: gamma
+
+------- All States ------
+[+ ] State 0
+   <' '>: None
+   <a>: State 0 -> State 1
+      Confidence: 10.0
+      (State 0 -> State 1) => (State 1 -> State 3) = 0.05
+   <b>: State 0 -> State 2
+      Confidence: 10.0
+   <c>: None
+   <d>: None
+
+[+ ] State 1
+   <' '>: State 1 -> State 0
+      Confidence: 100.0
+   <a>: None
+   <b>: State 1 -> State 3
+      Confidence: 10.0
+      (State 1 -> State 3) => (State 0 -> State 1) = 0.05
+      (State 1 -> State 3) => (State 3 -> State 4) = 0.05
+   <c>: None
+   <d>: None
+
+[+ ] State 2
+   <' '>: State 2 -> State 0
+      Confidence: 100.0
+   <a>: None
+   <b>: None
+   <c>: None
+   <d>: None
+
+[ql] State 3
+   <' '>: None
+   <a>: None
+   <b>: None
+   <c>: State 3 -> State 4
+      Confidence: 0.1
+      (State 3 -> State 4) => (State 1 -> State 3) = 0.05
+   <d>: None
+
+[ C] State 4
+   <' '>: State 4 -> State 0 [Temp]
+      Confidence: 0.1
+   <a>: None
+   <b>: None
+   <c>: None
+   <d>: None
+
+
+------- History ----------
+['a', 0.5, 'alpha', 0.45454545454545453]
+['b', 0.5, 'beta', 0.45454545454545453]
+['c', 0.5, 'gamma', 0.045454545454545456]
+

@@ -42,6 +42,10 @@ class Model(object):
 		self.c = None
 		self.I = [] #List of input symbol and strength pairs
 		self.Il = self.I #Last set of inputs
+		self.Isymbols = [] #Only the symbols for I
+		self.Ilsymbols = [] #Only the symbols for Il
+		self.history = [] #History of ad,sd,o,od
+		self.conditioned = [] #Stores what transitions had their distributins conditioned
 		self.ql = None #Last state
 		self.al = Epsilon() #Last strongest input
 		self.ol = Epsilon() #Last output
@@ -58,7 +62,8 @@ class Model(object):
 		global SIGMA,DELTA
 		SIGMA = self.Sigma
 		DELTA = self.Delta
-		self.Q = self.Q + [q0]
+		if q0 not in self.Q:
+			self.Q = self.Q + [q0]
 		self.c = q0
 		self.ql = q0
 		self.qa = q0
@@ -68,8 +73,16 @@ class Model(object):
 	Step 2-On
 	'''
 	def Cycle(self):
-		self.Il = self.I #Step 3
-		self.I = GetInput()
+		systemInput = GetInput()#Step 3
+		self.Il = self.I 
+		self.I = systemInput
+		#Store the symbols for quick reference
+		self.Isymbols = []
+		for pair in self.I:
+			self.Isymbols = self.Isymbols + [pair[0]]
+		self.Ilsymbols = []
+		for pair in self.Il:
+			self.Isymbols = self.Ilsymbols + [pair[0]]
 		if self.I == Epsilon(): #Step 2
 			if self.c.transitions[GetSymbolIndex(Epsilon())] != None:
 				if self.c.transitions[GetSymbolIndex(Epsilon())].isTemporary:
@@ -81,7 +94,7 @@ class Model(object):
 			self.ol = Epsilon()
 			self.Omicron = []
 			self.OmicronDist = []
-			HandleOutput('Time greater than tau passed')
+			HandleOutput('[Message] Time greater than tau passed')
 			return self.Cycle()
 		(self.ad,self.sd) = self.HandleInput(self.I) #Step 4
 		self.CreateTransitions() #Step 5
@@ -90,6 +103,7 @@ class Model(object):
 		#Determine Rewards based on some output stuff here?
 		Sout = (self.sd*self.c.transitions[GetSymbolIndex(self.ad)].GetConfidence())/(1+self.c.transitions[GetSymbolIndex(self.ad)].GetConfidence())
 		HandleOutput('Output: '+self.o+' with strength '+str(Sout))
+		self.history = self.history + [[self.ad,self.sd,self.o,Sout]]
 		self.Omicron = self.Omicron + [self.o] #Step 8
 		self.OmicronDist = self.OmicronDist + [self.c.GetNextState(self.ad)]
 		self.UpdateExpectations() #Step 9
@@ -228,32 +242,96 @@ class Model(object):
 		pass
 
 	def ApplyConditioning(self):
-		pass
+		self.conditioned = []
+		if self.ol != Epsilon() and self.o != self.ol:
+			for symbol in self.Sigma:
+				t1 = self.ql.transitions[GetSymbolIndex(self.al)] #ql on al
+				t2 = self.ql.transitions[GetSymbolIndex(symbol)] #ql on symbol
+				if t1 != None and t2 != None:
+					if t2 in t1.Expectations.keys():
+						if symbol in self.Ilsymbols:
+							change = self.gamma*self.sd*(1/t2.Confidence)
+							t2.PDelta[self.ol] = (t2.PDelta[self.ol] + change)/(1+change)
+							for d in self.Delta:
+								if d != symbol:
+									t2.PDelta[d] = (t2.PDelta[d])/(1+change)
+							#Condition?
+							if t2 not in self.conditioned:
+								self.conditioned = self.conditioned + [t2]
+								t2.Confidence += self.gamma*self.sd
+								UpdateConditioning(self.ql,symbol,self.sd*(1/t2.Confidence))
+			for state in self.Q:
+				for symbol in self.Sigma:
+					if state.transitions[GetSymbolIndex(symbol)] == self.ql:
+						t1 = self.ql.transitions[GetSymbolIndex(self.al)] #ql on al
+						t3 = state.transitions[GetSymbolIndex(symbol)] #state on symbol that leads to ql
+						if t1 != None and t3 != None:
+							if t3 in t1.Expectations.keys():
+								change = self.gamma*self.sd*(1/t3.Confidence)
+								t3.PDelta[self.ol] = (t3.PDelta[self.ol] + change) / (1+change)
+								for d in self.Delta:
+									if d != symbol:
+										t3.PDelta[d] = t3.PDelta[d] / (1+change)
+								#Condition?
+								if t3 not in self.conditioned:
+									self.conditioned = self.conditioned + [t3]
+									t3.Confidence += self.gamma*self.sd
+									UpdateConditioning(state,symbol,self.sd*(1/t3.Confidence))
+			#DO THE PART ABOUT THE NOT ALREADY CONDITIONED THINGS?
+				#I decided to do this in the other loops and then I need to determine some marker to say we already handled them
 
-	def UpdateConditioning(self):
-		pass
+
+
+	def UpdateConditioning(self,state,symbol,s):
+		if s > 0:
+			t1 = state.transitions[GetSymbolIndex(symbol)] # state on symbol
+			if t1 != None:
+				for a in self.Sigma:
+					t2 = state.transitions[GetSymbolIndex(a)] # state on a
+					if t2 != None and t2 in t1.Expectations.keys():
+						if t2 not in self.conditioned:
+							change = self.gamma*s*(1/t2.Confidence)
+							t2.PDelta[self.ol] = (t2.PDelta[self.ol]+change)/(1+change)
+							for d in self.Delta:
+								if d != self.ol:
+									t2.PDelta[d] = (t2.PDelta[d])/(1+change)
 
 	def PrintModel(self):
-		output = '\n'
-		output += 'Current State: '+self.c.PrintState()+'\n'
-		output += 'Last State: '+self.ql.PrintState()+'\n'
+		output = '--------- Status --------\n'
+		output += 'Sigma: ' +str(self.Sigma) +'\n'
+		output += 'Delta: ' +str(self.Delta) +'\n'
+		output += '\n------- I/O -------------\n'
+		output += 'Last Input: '+str(self.Il) + '\n'
+		output += 'Current Input: '+str(self.I) +'\n'
+		output += 'Last Output: '+str(self.ol) +'\n'
+		output += 'Current Output: '+str(self.o) +'\n'
 		output += '\n------- All States ------\n'
 		for q in self.Q:
-			output += '[+] '+ q.PrintState() +'\n'
+			if q == self.c:
+				output += '[ C] '+ q.PrintState() +'\n'
+			elif q == self.ql:
+				output += '[ql] '+ q.PrintState() +'\n'
+			else:
+				output += '[+ ] '+ q.PrintState() +'\n'
 			for a in self.Sigma:
 				t = q.transitions[GetSymbolIndex(a)]
+				if a == Epsilon():
+					a = "' '"
 				if t != None:
-					output += '['+a+']'+t.PrintTransition()
+					output += '   <'+a+'>: '+t.PrintTransition()
 					if t.isTemporary:
 						output += ' [Temp]\n'
 					else:
 						output += '\n'
-					output += 'Confidence: '+str(t.GetConfidence())+'\n'
+					output += '      Confidence: '+str(t.GetConfidence())+'\n'
 					for to in t.Expectations.keys():
-						output += '('+t.PrintTransition()+') + ('+to.PrintTransition()+') = '+str(t.Expectations[to]) +'\n'
+						output += '      ('+t.PrintTransition()+') => ('+to.PrintTransition()+') = '+str(t.Expectations[to]) +'\n'
 				else:
-					output += '['+a+'] None\n'
+					output += '   <'+a+'>: None\n'
 			output += '\n'
+		output += '\n------- History ----------\n'
+		for entry in self.history:
+			output += str(entry)+'\n'
 		output += '\n'
 		return output
 
@@ -289,7 +367,7 @@ class State(object):
 			self.transitions[index] = transition
 		else:
 			#DEBUG
-			print('Transition for the symbol %s already exists for this state %s' %(symbol,self.PrintState()))
+			print('[Error] Transition for the symbol %s already exists for this state %s' %(symbol,self.PrintState()))
 			print(self.transitions[index].PrintState())
 
 	def PrintState(self):
@@ -370,13 +448,20 @@ class Transition(object):
 '''Globals  ----------------------------------------------------------------------------------------------'''
 SIGMA = []
 DELTA = []
+Q = []
 EPSILON = ''
+outputFile = 'output.txt'
 m = None
 
 '''Script Functions  ----------------------------------------------------------------------------------------------'''	
 
 def main():
-	global SIGMA, DELTA, m
+	global SIGMA,DELTA,m,Q
+	LoadFromFile('test.txt')
+	m = Model(SIGMA,DELTA,eta=0.2)
+	m.Q = Q
+	m.Start(Q[0])
+	'''
 	SIGMA = [EPSILON,'a','b']
 	DELTA = [EPSILON,'alpha','beta']
 	m = Model(SIGMA,DELTA,eta=0.2)
@@ -388,6 +473,7 @@ def main():
 	s0.AddTransitionOn('a',t)
 	m.Q = m.Q + [s1]
 	m.Start(s0)
+	'''
 	#GetInput()
 
 '''Gets input from user in form of symbol:strength pairs seperated by commas
@@ -403,7 +489,9 @@ def GetInput():
 	if (userInput.lower() in quit):
 		exit()
 	if userInput.lower() == 'status':
-		print(m.PrintModel())
+		status = m.PrintModel()
+		#print(status)
+		SaveStatusToFile(status)
 		return GetInput()
 	pairs = userInput.split(',')
 	count = 0
@@ -427,6 +515,77 @@ def GetSymbolIndex(symbol):
 		if symbol == SIGMA[i]:
 			return i
 	return -1
+
+def SaveStatusToFile(status):
+	global outputFile
+	file = open(outputFile,'w')
+	file.write(status)
+	print('[Message] Status saved to \"output.txt\"')
+
+def LoadFromFile(fileName):
+	global SIGMA,DELTA,Q
+	file = open(fileName,'r')
+	sigma = []
+	delta = []
+	q = []
+	count = 0
+	for line in file:
+		line = line.strip()
+		if count == 0:
+			sigma = [Epsilon()] + line.split(',')
+			SIGMA = sigma
+		elif count == 1:
+			delta = [Epsilon()] + line.split(',')
+			DELTA = delta
+		elif count == 2:
+			listOfQ = line.split(',')
+			for i in listOfQ:
+				i = int(i)
+				q = q + [State(i)]
+			Q = q
+		else:
+			if line[0] == 'T':
+				line = line[2:]
+				toks = line.split('=')
+				left = toks[0].strip().split('+') # StartState + symbol
+				right = toks[1].strip().split(':') # EndState : Confidence
+				t = Transition(Q[int(left[0].strip())],Q[int(right[0].strip())])
+				symbol = left[1].strip()
+				if symbol == '?':
+					symbol = Epsilon()
+				t.GenerateNew(1/len(delta),delta)
+				t.SetConfidence(float(right[1].strip()))
+				Q[int(left[0].strip())].AddTransitionOn(symbol,t)
+				#print(t.PrintTransition())
+			elif line[0] == 'P':
+				line = line[2:]
+				#print(line)
+				toks = line.split('=')
+				left = toks[0].strip().split('+')
+				state = Q[int(left[0].strip())]
+				symbolIndex = GetSymbolIndex(left[1].strip())
+				distribution = {}
+				i = 0
+				total = 0
+				for num in toks[1].strip().split(','):
+					distribution[DELTA[i]] = float(num)
+					total += float(num)
+					i += 1
+				if total != 1.0:
+					print('Error in distributions, total is not out of 1:')
+					pprint.pprint(distribution)
+					for symbol in distribution.keys():
+						distribution[symbol] = (distribution[symbol] + (total - 1))/ total
+					pprint.pprint(distribution)
+				state.transitions[symbolIndex].PDelta = distribution
+
+		count+=1
+		'''
+	for state in Q:
+		print(state.PrintState())
+	print(sigma)
+	print(delta)
+	'''
 
 if __name__ == '__main__':
 	main()
