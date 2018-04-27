@@ -97,6 +97,7 @@ class Model(object):
 			self.OmicronDist = []
 			self.OmicronA = []
 			HandleOutput('[Message] Time greater than tau passed')
+			self.history = self.history + [["' '",0.0,"' '",0.0]] #Epsilon added to History
 			return self.Cycle()
 		(self.ad,self.sd) = self.HandleInput(self.I) #Step 4
 		self.CreateTransitions() #Step 5
@@ -148,6 +149,7 @@ class Model(object):
 					told = state.transitions[GetSymbolIndex(ai)]
 					if told != None:
 						temp.CopyTransition(told)
+						#Copy reward and punishment status if the place this goes is reward or punishment
 						found = True
 						break
 				if not found:
@@ -220,6 +222,7 @@ class Model(object):
 								deltaE = self.alpha * (1-t6.Expectations[t5])
 								t6.Confidence *= (1-self.beta*abs(deltaE))
 								t6.Expectations[t5] += deltaE
+							#ELse create the relationship
 							elif hasA or hasB:
 								deltaE = -self.alpha * t5.Expectations[t6]
 								t5.Confidence *= (1-self.beta*abs(deltaE))
@@ -236,6 +239,7 @@ class Model(object):
 			symbol = self.Omicron[i]
 			a = self.OmicronA[i]
 			change = self.zeta*t*self.sd*1/self.OmicronDist[i].GetConfidence()
+			print(pprint.pformat(distribution),symbol,a,str(change))
 			distribution[symbol] = (distribution[symbol] + change)/(1+change)
 			for b in self.Delta:
 				if b != symbol:
@@ -339,6 +343,7 @@ class Model(object):
 									t2.PDelta[d] = (t2.PDelta[d])/(1+change)
 							if a in self.Isymbols:
 								t2.Confidence += self.gamma * s
+								self.conditioned = self.conditioned + [t2]
 								UpdateConditioning(state,a,s*(1/t2.Confidence))
 					for q in self.Q:
 						t3 = q.transitions[GetSymbolIndex(a)] # q on a
@@ -390,6 +395,7 @@ class Model(object):
 					output += '      Confidence: '+str(t.GetConfidence())+'\n'
 					for to in t.Expectations.keys():
 						output += '      ('+t.PrintTransition()+') => ('+to.PrintTransition()+') = '+str(t.Expectations[to]) +'\n'
+					output += '      PDelta:\n         '+pprint.pformat(t.PDelta,indent=9) + '\n'
 				else:
 					output += '   <'+a+'>: None\n'
 			output += '\n'
@@ -515,6 +521,10 @@ DELTA = []
 Q = []
 EPSILON = ''
 outputFile = 'output.txt'
+inputFileName = 'input.txt'
+inputFile = None
+usingFile = False;
+lineCount = 0;
 m = None
 
 '''Script Functions  ----------------------------------------------------------------------------------------------'''	
@@ -522,7 +532,7 @@ m = None
 def main():
 	global SIGMA,DELTA,m,Q
 	LoadFromFile('test.txt')
-	m = Model(SIGMA,DELTA,eta=0.2)
+	m = Model(SIGMA,DELTA)
 	m.Q = Q
 	m.Start(Q[0])
 
@@ -531,25 +541,64 @@ i.e. A:0.2,B:0.4
 DOES NOT CHECK IF INPUT IS VALID
 '''
 def GetInput():
+	global usingFile
+	if not usingFile:
+		Iin = []
+		userInput = input('\nPlease enter symbol streangth pairs seperated by , :\n')
+		if (userInput == EPSILON  or userInput == "EPSION"):
+			return EPSILON
+		quit = ['quit','q']
+		if (userInput.lower() in quit):
+			exit()
+		if userInput.lower() == 'status':
+			status = m.PrintModel()
+			#print(status)
+			SaveStatusToFile(status)
+			return GetInput()
+		if userInput.lower() == 'read file':
+			usingFile = True
+			return GetFileInput()
+		pairs = userInput.split(',')
+		count = 0
+		for pair in pairs:
+			toks = pair.split(':')
+			if len(toks) == 1:
+				Iin = Iin +[[toks[0],1.0]]
+			else:
+				Iin = Iin+[[toks[0],float(toks[1])]]
+			count += 1
+		return Iin
+	else:
+		return GetFileInput()
+
+'''Reads from the file if the flag is set true'''
+def GetFileInput():
+	global inputFile,inputFileName
+	if inputFile == None:
+		inputFile = open(inputFileName,'r')
 	Iin = []
-	userInput = input('\nPlease enter symbol streangth pairs seperated by , :\n')
-	if (userInput == EPSILON):
-		return EPSILON
-	quit = ['quit','q']
-	if (userInput.lower() in quit):
-		exit()
-	if userInput.lower() == 'status':
-		status = m.PrintModel()
-		#print(status)
-		SaveStatusToFile(status)
-		return GetInput()
-	pairs = userInput.split(',')
-	count = 0
-	for pair in pairs:
-		toks = pair.split(':')
-		Iin = Iin+[[toks[0],float(toks[1])]]
-		count += 1
-	return Iin
+	for line in inputFile:
+		userInput = line
+		if userInput == Epsilon() or userInput == "EPSION":
+			return Epsilon()
+		quit = ['quit','q']
+		if (userInput.lower() in quit):
+			exit()
+		if userInput.lower() == 'status':
+			status = m.PrintModel()
+			#print(status)
+			SaveStatusToFile(status)
+			return GetInput()
+		pairs = userInput.split(',')
+		count = 0
+		for pair in pairs:
+			toks = pair.split(':')
+			if len(toks) == 1:
+				Iin = Iin +[[toks[0],1.0]]
+			else:
+				Iin = Iin+[[toks[0],float(toks[1])]]
+			count += 1
+			return Iin
 
 '''Returns the epsilon value'''
 def Epsilon():
@@ -597,13 +646,13 @@ def LoadFromFile(fileName):
 			if line[0] == 'T':
 				line = line[2:]
 				toks = line.split('=')
-				left = toks[0].strip().split('+') # StartState + symbol
+				left = toks[0].strip().split('>') # StartState + symbol
 				right = toks[1].strip().split(':') # EndState : Confidence
 				t = Transition(Q[int(left[0].strip())],Q[int(right[0].strip())])
 				symbol = left[1].strip()
 				if symbol == '?':
 					symbol = Epsilon()
-				t.GenerateNew(1/len(delta),delta)
+				t.GenerateNew(1.0,delta)
 				t.SetConfidence(float(right[1].strip()))
 				Q[int(left[0].strip())].AddTransitionOn(symbol,t)
 				#print(t.PrintTransition())
@@ -611,7 +660,7 @@ def LoadFromFile(fileName):
 				line = line[2:]
 				#print(line)
 				toks = line.split('=')
-				left = toks[0].strip().split('+')
+				left = toks[0].strip().split('>')
 				state = Q[int(left[0].strip())]
 				symbolIndex = GetSymbolIndex(left[1].strip())
 				distribution = {}

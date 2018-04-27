@@ -1,40 +1,45 @@
 --------- Status --------
-Sigma: ['', 'a', 'b', 'c', 'd']
-Delta: ['', 'alpha', 'beta', 'gamma', 'delta', 'eta']
+Sigma: ['', 'ucs+', 'cs+', 'ucs-', 'cs-']
+Delta: ['', 'salivate']
 
 ------- I/O -------------
 Last Input: []
-Current Input: [['a', 0.9]]
+Current Input: 
 Last Output: 
-Current Output: eta
+Current Output: 
 
 ------- All States ------
-[ql] State 0
+[ C] State 0
    <' '>: None
-   <a>: State 0 -> State 1
-      Confidence: 10.108
-   <b>: State 0 -> State 2
-      Confidence: 10.0
-   <c>: None
-   <d>: None
+   <ucs+>: State 0 -> State 1
+      Confidence: 10000.0
+      PDelta:
+         {'': 0.03, 'salivate': 0.97}
+   <cs+>: None
+   <ucs->: None
+   <cs->: None
 
-[ C] State 1 [punishment]
-   <' '>: State 1 -> State 0
-      Confidence: 100.0
-   <a>: None
-   <b>: None
-   <c>: None
-   <d>: None
+[+ ] State 1
+   <' '>: None
+   <ucs+>: None
+   <cs+>: None
+   <ucs->: State 1 -> State 2
+      Confidence: 10000.0
+      PDelta:
+         {'': 1.0, 'salivate': 0.0}
+   <cs->: None
 
-[+ ] State 2 [Reward]
+[+ ] State 2
    <' '>: State 2 -> State 0
-      Confidence: 100.0
-   <a>: None
-   <b>: None
-   <c>: None
-   <d>: None
+      Confidence: 10000.0
+      PDelta:
+         {'': 1.0, 'salivate': 0.0}
+   <ucs+>: None
+   <cs+>: None
+   <ucs->: None
+   <cs->: None
 
 
 ------- History ----------
-['a', 0.9, 'eta', 0.8181818181818182]
+["' '", 0.0, "' '", 0.0]
 

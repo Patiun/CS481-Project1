@@ -1,0 +1,7 @@
+cs+:0.9
+ucs+:1.0
+cs-:1.0
+ucs-:1.0
+EPSILON
+status
+q
