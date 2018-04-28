@@ -149,7 +149,10 @@ class Model(object):
 					told = state.transitions[GetSymbolIndex(ai)]
 					if told != None:
 						temp.CopyTransition(told)
-						#Copy reward and punishment status if the place this goes is reward or punishment
+						if told.GetNextState().isReward:
+							qn.isReward = True
+						elif told.GetNextState().isPunishment:
+							qn.isPunishment = True
 						found = True
 						break
 				if not found:
@@ -222,7 +225,6 @@ class Model(object):
 								deltaE = self.alpha * (1-t6.Expectations[t5])
 								t6.Confidence *= (1-self.beta*abs(deltaE))
 								t6.Expectations[t5] += deltaE
-							#ELse create the relationship
 							elif hasA or hasB:
 								deltaE = -self.alpha * t5.Expectations[t6]
 								t5.Confidence *= (1-self.beta*abs(deltaE))
@@ -230,6 +232,29 @@ class Model(object):
 								deltaE = -self.alpha * t6.Expectations[t5]
 								t6.Confidence *= (1-self.beta*abs(deltaE))
 								t6.Expectations[t5] += deltaE
+
+					t5 = self.c.transitions[GetSymbolIndex(a)] #c on a
+					t6 = self.c.transitions[GetSymbolIndex(b)] #c on b
+					if t5 != None and t6 != None:
+						if a in self.Isymbols and b in self.Isymbols:
+							if t6 in t5.Expectations.keys(): #I THINK THIS IS NOW ONE WAY
+								deltaE = self.alpha * (1-t5.Expectations[t6])
+								t5.Confidence *= (1-self.beta*abs(deltaE))
+								t5.Expectations[t6] += deltaE
+							else:
+								t5.Expectations[t6] = self.alpha
+								t5.Confidence *= (1-self.beta*abs(deltaE)) #IDK IF THIS BELONGS HERE
+						else if a in self.Isymbols or b in self.Isymbols:
+							if t6 in t5.Expectations.keys():
+								deltaE = -self.alpha * t5.Expectations[t6]
+								t5.Confidence *= (1-self.beta*abs(deltaE))
+								t5.Expectations[t6] += deltaE
+								deltaE = -self.alpha * t6.Expectations[t5]
+								t6.Confidence *= (1-self.beta*abs(deltaE))
+								t6.Expectations[t5] += deltaE
+
+
+
 
 	#!!!!!!!!!!!!!!!!CHECK THIS LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	def ApplyReward(self):
