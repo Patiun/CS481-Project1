@@ -1,0 +1,22 @@
+Experiment Report:
+
+Ran CFA.py using Dog.txt to create the initial model with the following parameters:
+alpha=0.05, beta=0.05, gamma=0.2, eta=1.0, zeta=0.1, nu=0.5, kappa=0.9
+
+After running the input path cs+ -> ucs+ -> cs- -> ucs- -> epsilon in batches of 20 I gained the following results when trying to encourage salivating on cs+:
+
+Trials	epsilon	salivate
+0	'': 1.0, 'salivate': 0.0
+20	'': 0.995647138717037, 'salivate': 0.004352861282962792
+40	'': 0.990766641506694, 'salivate': 0.009233358493305924
+60	'': 0.9848113022571136, 'salivate': 0.015188697742886885
+80	'': 0.9779406580782012, 'salivate': 0.02205934192179899
+100	'': 0.9704619524130482, 'salivate': 0.02953804758695133
+120	'': 0.9614057466923862, 'salivate': 0.03859425330761278
+140	'': 0.9515462631098992, 'salivate': 0.04845373689009947
+160	'': 0.9397530909837606, 'salivate': 0.06024690901623755
+180	'': 0.9263730497451558, 'salivate': 0.07362695025484248
+200	'': 0.911254580325949, 'salivate': 0.08874541967404936
+220	'': 0.8942503356142704, 'salivate': 0.1057496643857275
+240	'': 0.875223743148966, 'salivate': 0.1247762568510324
+260	'': 0.19454330777548554, 'salivate': 0.8054566922245141

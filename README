@@ -1,0 +1,44 @@
+HW1
+Greg Kilmer
+
+Files:
+
+CFA.py - script file that handles the operation of the system.
+input.txt - text file that is read line by line if CFA.py is told to read from files.
+output.txt - text file that is updated when the status command is run in the CFA.py inout loop.
+index.html - HTML file that is the visual representation of the neruons and transitions that is produced from CFA.py's status command.
+Dog.txt - example starting system text file that sets up the model in CFA.py.
+
+To run the system: run CFA.py in the same directory as the other files. If it is nt in the directory with them, it will fail to start when trying to load Dog.txt (This can be changed by altering the filepath in line 644 of CFA.py).
+
+CFA.py Commands:
+
+q or quit - Exits the running model.
+status - Prints the status of the current model to output.txt and index.html
+read file - Causes the model to read from input.txt then return to commandline input if it does not follow a quit command.
+
+Entering Input:
+
+Input is entered in a command line or read from a file using the read file command.
+Input is entered in sets of symbol strength pairs seperated by a colon as follows: a:0.5,b:0.9
+Entering nothing or 'EPSILON' is read as such.
+
+Setting up input.txt:
+
+Input to be read from input.txt is entered in the same way as command line input. Each line is treated as a seperate entry and the word EPSILON is used to signal an epislon transition.
+
+Setting up an experiment file:
+
+Experiment files have stricter formats than other files. The first three lines of an experiment file are reserved for the definition of Sigma, Delta, and Q respectively.
+The system automatically assumes epsilon as an input and output symbol for Sigma and Delta so it does not need to be stated again. However, when referencing epsilon as a symbol the character ? is used.
+Subsequent lines are denoted by their first character: T defines a transition, P defines a Probalistic Distribution, and + or - denote a reward or punishment state.
+
+Transition lines look as follows: T 0 > a = 1 : 10 
+	This describes a transition from state 0 on symbol a to state 1 with a confidence of 10
+Probability Distributions look as follows: P 0 > a = 0.0,1.0
+	This describes a probabilistic distribution for state 0 and input symbol a where the first probability is epislon and the remaining probabilities represent each output symbol in order.
+A reward or punishment state is defined as follows: + 0
+	This describes 0 as a reward state.
+
+Parameters for the experiment can be tweaked by entering them into the model directly on line 645 of CFA.py.
+The file that the experiment loads from can also be changed at line 644 of CFA.py.
