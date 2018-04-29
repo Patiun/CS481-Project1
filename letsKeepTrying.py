@@ -48,6 +48,7 @@ class Model(object):
 		self.history = [] #History of ad,sd,o,od
 		self.conditioned = [] #Stores what transitions had their distributins conditioned
 		self.ql = None #Last state
+		self.ad = Epsilon() #Strongest Input
 		self.al = Epsilon() #Last strongest input
 		self.ol = Epsilon() #Last output
 		self.o = Epsilon() #Current Output
@@ -74,53 +75,54 @@ class Model(object):
 	Step 2-On
 	'''
 	def Cycle(self):
-		systemInput = GetInput()#Step 3
-		self.Il = self.I 
-		self.I = systemInput
-		#Store the symbols for quick reference
-		self.Isymbols = []
-		for pair in self.I:
-			self.Isymbols = self.Isymbols + [pair[0]]
-		self.Ilsymbols = []
-		for pair in self.Il:
-			self.Isymbols = self.Ilsymbols + [pair[0]]
-		if self.I == Epsilon(): #Step 2
-			if self.c.transitions[GetSymbolIndex(Epsilon())] != None:
-				if self.c.transitions[GetSymbolIndex(Epsilon())].isTemporary:
-					self.c.transitions[GetSymbolIndex(Epsilon())].isTemporary = False
-				self.ql = self.c
-				self.c = self.c.GetNextState(Epsilon())
-			self.qa = self.c
-			self.al = Epsilon()
-			self.ol = Epsilon()
-			self.Omicron = []
-			self.OmicronDist = []
-			self.OmicronA = []
-			HandleOutput('[Message] Time greater than tau passed')
-			self.history = self.history + [["' '",0.0,"' '",0.0]] #Epsilon added to History
-			return self.Cycle()
-		(self.ad,self.sd) = self.HandleInput(self.I) #Step 4
-		self.CreateTransitions() #Step 5
-		self.ol = self.o #Step 6
-		self.o = self.c.transitions[GetSymbolIndex(self.ad)].ChooseOuput() #Step 7
-		#Determine Rewards based on some output stuff here?
-		Sout = (self.sd*self.c.transitions[GetSymbolIndex(self.ad)].GetConfidence())/(1+self.c.transitions[GetSymbolIndex(self.ad)].GetConfidence())
-		HandleOutput('Output: '+self.o+' with strength '+str(Sout))
-		self.history = self.history + [[self.ad,self.sd,self.o,Sout]]
-		self.Omicron = self.Omicron + [self.o] #Step 8
-		self.OmicronDist = self.OmicronDist + [self.c.transitions[GetSymbolIndex(self.ad)]]
-		self.OmicronA = self.OmicronA + [self.ad]
-		self.UpdateExpectations() #Step 9
-		self.ql = self.c #Self 6
-		self.al = self.ad
-		self.c = self.c.GetNextState(self.ad) #Step 10
-		if self.c.isReward: #Step 11
-			self.ApplyReward()
-		elif self.c.isPunishment:
-			self.ApplyPunishment()
-		else:
-			self.ApplyConditioning()
-		self.Cycle() #Step 12
+		while(True):
+			systemInput = GetInput()#Step 3
+			self.Il = self.I 
+			self.I = systemInput
+			#Store the symbols for quick reference
+			self.Isymbols = []
+			for pair in self.I:
+				self.Isymbols = self.Isymbols + [pair[0]]
+			self.Ilsymbols = []
+			for pair in self.Il:
+				self.Isymbols = self.Ilsymbols + [pair[0]]
+			if self.I == Epsilon(): #Step 2
+				if self.c.transitions[GetSymbolIndex(Epsilon())] != None:
+					if self.c.transitions[GetSymbolIndex(Epsilon())].isTemporary:
+						self.c.transitions[GetSymbolIndex(Epsilon())].isTemporary = False
+					self.ql = self.c
+					self.c = self.c.GetNextState(Epsilon())
+				self.qa = self.c
+				self.al = Epsilon()
+				self.ol = Epsilon()
+				self.Omicron = []
+				self.OmicronDist = []
+				self.OmicronA = []
+				HandleOutput('[Message] Time greater than tau passed')
+				self.history = self.history + [["' '",0.0,"' '",0.0]] #Epsilon added to History
+				return self.Cycle()
+			(self.ad,self.sd) = self.HandleInput(self.I) #Step 4
+			self.CreateTransitions() #Step 5
+			self.ol = self.o #Step 6
+			self.o = self.c.transitions[GetSymbolIndex(self.ad)].ChooseOuput() #Step 7
+			#Determine Rewards based on some output stuff here?
+			Sout = (self.sd*self.c.transitions[GetSymbolIndex(self.ad)].GetConfidence())/(1+self.c.transitions[GetSymbolIndex(self.ad)].GetConfidence())
+			HandleOutput('Output: '+self.o+' with strength '+str(Sout))
+			self.history = self.history + [[self.ad,self.sd,self.o,Sout]]
+			self.Omicron = self.Omicron + [self.o] #Step 8
+			self.OmicronDist = self.OmicronDist + [self.c.transitions[GetSymbolIndex(self.ad)]]
+			self.OmicronA = self.OmicronA + [self.ad]
+			self.UpdateExpectations() #Step 9
+			self.ql = self.c #Self 6
+			self.al = self.ad
+			self.c = self.c.GetNextState(self.ad) #Step 10
+			if self.c.isReward: #Step 11
+				self.ApplyReward()
+			elif self.c.isPunishment:
+				self.ApplyPunishment()
+			else:
+				self.ApplyConditioning()
+		#self.Cycle() #Step 12
 
 	'''Returns the strongest input pair'''
 	def HandleInput(self,nextInput):
@@ -144,14 +146,15 @@ class Model(object):
 				temp = Transition(self.c,qn)
 				te = Transition(qn,self.qa)
 				te.isTemporary = True
+				te.GenerateNew(self.eta,self.Delta)
 				found = False
 				for state in self.Q:
 					told = state.transitions[GetSymbolIndex(ai)]
 					if told != None:
 						temp.CopyTransition(told)
-						if told.GetNextState().isReward:
+						if told.TakeTransition().isReward:
 							qn.isReward = True
-						elif told.GetNextState().isPunishment:
+						elif told.TakeTransition().isPunishment:
 							qn.isPunishment = True
 						found = True
 						break
@@ -207,32 +210,6 @@ class Model(object):
 		for a in self.Sigma:
 			for b in self.Sigma:
 				if a != b:
-					hasA = False
-					hasB = False
-					for pair in self.I:
-						if a in pair:
-							hasA = True
-						if b in pair:
-							hasB = True
-					t5 = self.c.transitions[GetSymbolIndex(a)] #c on a
-					t6 = self.c.transitions[GetSymbolIndex(b)] #c on b
-					if t5 != None and t6 != None:
-						if t5 in t6.Expectations.keys():
-							if hasA and hasB:
-								deltaE = self.alpha * (1-t5.Expectations[t6])
-								t5.Confidence *= (1-self.beta*abs(deltaE))
-								t5.Expectations[t6] += deltaE
-								deltaE = self.alpha * (1-t6.Expectations[t5])
-								t6.Confidence *= (1-self.beta*abs(deltaE))
-								t6.Expectations[t5] += deltaE
-							elif hasA or hasB:
-								deltaE = -self.alpha * t5.Expectations[t6]
-								t5.Confidence *= (1-self.beta*abs(deltaE))
-								t5.Expectations[t6] += deltaE
-								deltaE = -self.alpha * t6.Expectations[t5]
-								t6.Confidence *= (1-self.beta*abs(deltaE))
-								t6.Expectations[t5] += deltaE
-
 					t5 = self.c.transitions[GetSymbolIndex(a)] #c on a
 					t6 = self.c.transitions[GetSymbolIndex(b)] #c on b
 					if t5 != None and t6 != None:
@@ -244,16 +221,11 @@ class Model(object):
 							else:
 								t5.Expectations[t6] = self.alpha
 								t5.Confidence *= (1-self.beta*abs(deltaE)) #IDK IF THIS BELONGS HERE
-						else if a in self.Isymbols or b in self.Isymbols:
+						elif a in self.Isymbols or b in self.Isymbols:
 							if t6 in t5.Expectations.keys():
 								deltaE = -self.alpha * t5.Expectations[t6]
 								t5.Confidence *= (1-self.beta*abs(deltaE))
 								t5.Expectations[t6] += deltaE
-								deltaE = -self.alpha * t6.Expectations[t5]
-								t6.Confidence *= (1-self.beta*abs(deltaE))
-								t6.Expectations[t5] += deltaE
-
-
 
 
 	#!!!!!!!!!!!!!!!!CHECK THIS LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -310,8 +282,76 @@ class Model(object):
 		self.OmicronDist = []
 		self.OmicronA = []
 
-	#!!!!!!!!!!!!!!!!CHECK THIS LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	def ApplyConditioning(self):
+		global EpislonCanLearn
+		self.conditioned = []
+		tl = self.ql.transitions[GetSymbolIndex(self.al)] #ql on al
+		if self.ol != Epsilon() and self.ol != self.o and tl != None:
+			for a in self.Sigma:
+				if EpislonCanLearn or a != Epsilon():
+					t2 = self.ql.transitions[GetSymbolIndex(a)] #ql on a
+					if t2 != None and t2 in tl.Expectations.keys() and a in self.Isymbols:
+						#print('[DEBUG ApplyConditioning]: g:%f sd:%f c:%f for %s' %(self.gamma,self.sd,t2.Confidence,t2.PrintTransition()))
+						change = self.gamma*self.sd/t2.Confidence
+						t2.PDelta[self.ol] = (t2.PDelta[self.ol] + change) / (1+change)
+						for b in self.Delta:
+							if b != self.ol:
+								t2.PDelta[b] = t2.PDelta[b] / (1+change)
+						if t2 not in self.conditioned:
+							self.conditioned += [t2]
+							#print(t2.PrintTransition()+' Conditioned')
+							t2.Confidence += self.gamma * self.sd
+							self.UpdateConditioning(self.ql,a,(self.sd/t2.Confidence))
+					for q in self.Q:
+						t3 = q.transitions[GetSymbolIndex(a)] #q on a
+						if t3 != None and t3.endState == self.ql and t3 in tl.Expectations.keys():
+							#print('[DEBUG ApplyConditioning]: g:%f sd:%f c:%f for %s' %(self.gamma,self.sd,t3.Confidence,t3.PrintTransition()))
+							change = self.gamma*self.sd/t3.Confidence
+							t3.PDelta[self.ol] = (t3.PDelta[self.ol] + change) / (1+change)
+							for b in self.Delta:
+								if b != self.ol:
+									t3.PDelta[b] = t3.PDelta[b] / (1+change)
+							if t3 not in self.conditioned:
+								self.conditioned += [t3]
+								#print(t3.PrintTransition()+' Conditioned')
+								t3.Confidence += self.gamma * self.sd
+								self.UpdateConditioning(q,a,(self.sd/t3.Confidence))
+
+	def UpdateConditioning(self,qP,aP,s):
+		global EpislonCanLearn
+		if s > 0:
+			t1 = qP.transitions[GetSymbolIndex(aP)] #q' on a'
+			if t1 != None:
+				for a in self.Sigma:
+					if EpislonCanLearn or a != Epsilon():
+						t2 = qP.transitions[GetSymbolIndex(a)] #q' on a
+						if t2 != None and t2 in t1.Expectations.keys() and t2 not in self.conditioned: #a in self.Isymbols (Not doing this here?) 
+							#print('[DEBUG ApplyConditioning]: g:%f sd:%f c:%f for %s' %(self.gamma,s,t2.Confidence,t2.PrintTransition()))
+							change = self.gamma*s/t2.Confidence
+							t2.PDelta[self.ol] = (t2.PDelta[self.ol] + change) / (1+change)
+							for b in self.Delta:
+								if b != self.ol:
+									t2.PDelta[b] = t2.PDelta[b] / (1+change)
+							self.conditioned += [t2]
+							#print(t2.PrintTransition()+' Conditioned')
+							t2.Confidence += self.gamma*s
+							self.UpdateConditioning(qP,a,s/t2.Confidence)
+						for q in self.Q:
+							t3 = q.transitions[GetSymbolIndex(a)] #q on a
+							if t3 != None and t3 in t1.Expectations.keys() and t3 not in self.conditioned and t3.endState == qP: #I changed this from ql because that didn't make sense
+								#print('[DEBUG ApplyConditioning]: g:%f sd:%f c:%f for %s' %(self.gamma,s,t3.Confidence,t3.PrintTransition()))
+								change = self.gamma*s/t3.Confidence
+								t3.PDelta[self.ol] = (t3.PDelta[self.ol] + change) / (1+change)
+								for b in self.Delta:
+									if b != self.ol:
+										t3.PDelta[b] = t3.PDelta[b] / (1+change)
+								#print(t3.PrintTransition()+' Conditioned')
+								self.conditioned += [t3]
+								t3.Confidence += self.gamma*s
+								self.UpdateConditioning(q,a,s/t3.Confidence)
+
+	#!!!!!!!!!!!!!!!!CHECK THIS LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	def OldApplyConditioning(self):
 		self.conditioned = []
 		if self.ol != Epsilon() and self.o != self.ol:
 			for symbol in self.Sigma:
@@ -352,7 +392,7 @@ class Model(object):
 				#I decided to do this in the other loops and then I need to determine some marker to say we already handled them
 
 	#!!!!!!!!!!!!!!!!CHECK THIS LOGIC!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	def UpdateConditioning(self,state,symbol,s):
+	def OldUpdateConditioning(self,state,symbol,s):
 		if s > 0:
 			t1 = state.transitions[GetSymbolIndex(symbol)] # state on symbol
 			if t1 != None:
@@ -429,6 +469,51 @@ class Model(object):
 			output += str(entry)+'\n'
 		output += '\n'
 		return output
+
+	def ProduceHTML(self):
+		global HTMLstart,HTMLend
+		output = HTMLstart
+		for q in self.Q:
+			output += '      {name: \"[ '+str(q.id)+' ]\", color:'
+			if q == self.c:
+				output += '\"blue\"},\n'
+			elif q == self.ql:
+				output += '\"orange\"},\n'
+			else:
+				if q.isReward:
+					output += '\"green\"},\n'
+				elif q.isPunishment:
+					output += '\"red\"},\n'
+				else:
+					output += '\"gray\"},\n'
+		output += '''
+		],
+		edges: [
+		'''
+		for q in self.Q:
+			for a in self.Sigma:
+				t = q.transitions[GetSymbolIndex(a)]
+				if t != None:
+					output += '   {source: '+str(t.startState.id)+', target: '+str(t.endState.id)+', color:'
+					if q == self.c and a == self.ad:
+						output += '\'blue\''
+					elif q == self.ql and a == self.al:
+						output += '\'orange\''
+					else:
+						if q.isReward:
+							output += '\'green\''
+						elif q.isPunishment:
+							output += '\'red\''
+						else:
+							if t.isTemporary:
+								output += '\'white\''
+							else:
+								output += '\'gray\''
+					output += ', name: \''+a+'\'},\n'
+		output += HTMLend
+		return output
+
+
 
 
 '''State Class ----------------------------------------------------------------------------------------------
@@ -549,14 +634,14 @@ outputFile = 'output.txt'
 inputFileName = 'input.txt'
 inputFile = None
 usingFile = False;
-lineCount = 0;
 m = None
+EpislonCanLearn = False
 
 '''Script Functions  ----------------------------------------------------------------------------------------------'''	
 
 def main():
 	global SIGMA,DELTA,m,Q
-	LoadFromFile('test.txt')
+	LoadFromFile('Dog.txt')
 	m = Model(SIGMA,DELTA)
 	m.Q = Q
 	m.Start(Q[0])
@@ -598,32 +683,37 @@ def GetInput():
 
 '''Reads from the file if the flag is set true'''
 def GetFileInput():
-	global inputFile,inputFileName
+	global inputFile,inputFileName,usingFile
 	if inputFile == None:
 		inputFile = open(inputFileName,'r')
 	Iin = []
 	for line in inputFile:
-		userInput = line
-		if userInput == Epsilon() or userInput == "EPSION":
-			return Epsilon()
+		userInput = line.strip()
 		quit = ['quit','q']
-		if (userInput.lower() in quit):
+		if userInput == EPSILON or userInput == "EPSILON":
+			print ('EPSILON')
+			return EPSILON
+		elif (userInput.lower() in quit):
 			exit()
-		if userInput.lower() == 'status':
+		elif userInput.lower() == 'status':
 			status = m.PrintModel()
 			#print(status)
 			SaveStatusToFile(status)
 			return GetInput()
-		pairs = userInput.split(',')
-		count = 0
-		for pair in pairs:
-			toks = pair.split(':')
-			if len(toks) == 1:
-				Iin = Iin +[[toks[0],1.0]]
-			else:
-				Iin = Iin+[[toks[0],float(toks[1])]]
-			count += 1
-			return Iin
+		else:
+			pairs = userInput.split(',')
+			count = 0
+			for pair in pairs:
+				toks = pair.split(':')
+				if len(toks) == 1:
+					Iin = Iin +[[toks[0],1.0]]
+				else:
+					Iin = Iin+[[toks[0],float(toks[1])]]
+				count += 1
+				return Iin
+	usingFile = False
+	inputFile = None
+	return GetInput()
 
 '''Returns the epsilon value'''
 def Epsilon():
@@ -641,10 +731,13 @@ def GetSymbolIndex(symbol):
 	return -1
 
 def SaveStatusToFile(status):
-	global outputFile
+	global outputFile,m
 	file = open(outputFile,'w')
 	file.write(status)
 	print('[Message] Status saved to \"output.txt\"')
+	#HTML OUT
+	file = open('index.html','w')
+	file.write(m.ProduceHTML())
 
 def LoadFromFile(fileName):
 	global SIGMA,DELTA,Q
@@ -699,7 +792,7 @@ def LoadFromFile(fileName):
 					print('Error in distributions, total is not out of 1:')
 					pprint.pprint(distribution)
 					for symbol in distribution.keys():
-						distribution[symbol] = (distribution[symbol] + (total - 1))/ total
+						distribution[symbol] = (distribution[symbol] + (1-total)/len(distribution))/ 1
 					pprint.pprint(distribution)
 				state.transitions[symbolIndex].PDelta = distribution
 			elif line[0] == '+':
@@ -717,6 +810,163 @@ def LoadFromFile(fileName):
 	print(sigma)
 	print(delta)
 	'''
+HTMLstart = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CS481 Output</title>
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<style type="text/css">
+</style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    var w = 1000;
+    var h = 600;
+    var linkDistance=200;
+
+    var colors = d3.scale.category10();
+
+    var dataset = {
+
+    nodes: [
+'''
+HTMLend = '''
+    ]
+    };
+
+ 
+    var svg = d3.select("body").append("svg").attr({"width":w,"height":h});
+
+    var force = d3.layout.force()
+        .nodes(dataset.nodes)
+        .links(dataset.edges)
+        .size([w,h])
+        .linkDistance([linkDistance])
+        .charge([-500])
+        .theta(0.1)
+        .gravity(0.05)
+        .start();
+
+ 
+
+    var edges = svg.selectAll("line")
+      .data(dataset.edges)
+      .enter()
+      .append("line")
+      .attr("id",function(d,i) {return 'edge'+i})
+      .attr('marker-end','url(#arrowhead)')
+      .style("stroke","#ccc")
+      .style("pointer-events", "none");
+    
+    var nodes = svg.selectAll("circle")
+      .data(dataset.nodes)
+      .enter()
+      .append("circle")
+      .attr({"r":15})
+      .style("fill",function(d) { return d.color;})//function(d,i){return colors(i);})
+      .call(force.drag)
+
+
+    var nodelabels = svg.selectAll(".nodelabel") 
+       .data(dataset.nodes)
+       .enter()
+       .append("text")
+       .attr({"x":function(d){return d.x;},
+              "y":function(d){return d.y;},
+              "class":"nodelabel",
+              "stroke":"black"})
+       .text(function(d){return d.name;});
+
+    var edgepaths = svg.selectAll(".edgepath")
+        .data(dataset.edges)
+        .enter()
+        .append('path')
+        .attr({'d': function(d) {return 'M '+d.source.x+' '+d.source.y+' L '+ d.target.x +' '+d.target.y},
+               'class':'edgepath',
+               'fill-opacity':1,
+               'stroke-opacity':1,
+               'fill':function(d) {return d.color},
+               'stroke':function(d) {return d.color},
+               'id':function(d,i) {return 'edgepath'+i}})
+        .style("pointer-events", "none");
+
+    var edgelabels = svg.selectAll(".edgelabel")
+        .data(dataset.edges)
+        .enter()
+        .append('text')
+        .style("pointer-events", "none")
+        .attr({'class':'edgelabel',
+               'id':function(d,i){return 'edgelabel'+i},
+               'dx':80,
+               'dy':0,
+               'font-size':15,
+               'fill':'#aaa'});
+
+    edgelabels.append('textPath')
+        .data(dataset.edges)
+        .attr('xlink:href',function(d,i) {return '#edgepath'+i})
+        .style("pointer-events", "none")
+        .text(function(d,i){return d.name});//'label '+i}); //THIS IS THE NAME OF THE LABEL
+
+
+    svg.append('defs').append('marker')
+        .data(dataset.edges)
+        .attr({'id':'arrowhead',
+               'viewBox':'-0 -5 10 10',
+               'refX':25,
+               'refY':0,
+               //'markerUnits':'strokeWidth',
+               'orient':'auto',
+               'markerWidth':10,
+               'markerHeight':10,
+               'xoverflow':'visible'})
+        .append('svg:path')
+            .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+            .attr('fill', '#ccc')
+            .attr('stroke','#ccc');
+     
+
+    force.on("tick", function(){
+
+        edges.attr({"x1": function(d){return d.source.x;},
+                    "y1": function(d){return d.source.y;},
+                    "x2": function(d){return d.target.x;},
+                    "y2": function(d){return d.target.y;}
+        });
+
+        nodes.attr({"cx":function(d){return d.x;},
+                    "cy":function(d){return d.y;}
+        });
+
+        nodelabels.attr("x", function(d) { return d.x; }) 
+                  .attr("y", function(d) { return d.y; });
+
+        edgepaths.attr('d', function(d) { var path='M '+d.source.x+' '+d.source.y+' L '+ d.target.x +' '+d.target.y;
+                                           //console.log(d)
+                                           return path});       
+
+        edgelabels.attr('transform',function(d,i){
+            if (d.target.x<d.source.x){
+                bbox = this.getBBox();
+                rx = bbox.x+bbox.width/2;
+                ry = bbox.y+bbox.height/2;
+                return 'rotate(180 '+rx+' '+ry+')';
+                }
+            else {
+                return 'rotate(0)';
+                }
+        });
+    });
+
+</script>
+
+</body>
+</html>
+'''
 
 if __name__ == '__main__':
 	main()

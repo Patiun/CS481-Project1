@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>CS481 Output</title>
+<title>Force Layout with labels on edges</title>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <style type="text/css">
 </style>
@@ -21,25 +20,46 @@
     var dataset = {
 
     nodes: [
-      {name: "[ 0 ]", color:"blue"},
-      {name: "[ 1 ]", color:"gray"},
-      {name: "[ 2 ]", color:"gray"},
-      {name: "[ 3 ]", color:"gray"},
-      {name: "[ 4 ]", color:"gray"},
-      {name: "[ 5 ]", color:"gray"},
-      {name: "[ 6 ]", color:"orange"},
-
-		],
-		edges: [
-		   {source: 0, target: 1, color:'gray', name: 'ucs+'},
-   {source: 0, target: 3, color:'gray', name: 'cs+'},
-   {source: 1, target: 2, color:'gray', name: 'ucs-'},
-   {source: 2, target: 0, color:'gray', name: ''},
-   {source: 3, target: 4, color:'gray', name: 'ucs+'},
-   {source: 4, target: 5, color:'gray', name: 'cs-'},
-   {source: 5, target: 6, color:'gray', name: 'ucs-'},
-   {source: 6, target: 0, color:'orange', name: ''},
-
+    {name: "[ 0 ]", color:'blue'},
+    {name: "1", color:'gray'},
+    {name: "2", color:'red'},
+    {name: "3", color:'gray'},
+    {name: "4", color:'gray'},
+    {name: "5", color:'gray'},
+    {name: "6", color:'gray'},
+    {name: "7", color:'gray'},
+    {name: "8", color:'gray'},
+    {name: "9", color:'gray'}
+    ],
+    edges: [
+    {source: 0, target: 1, color:'blue'},
+    {source: 0, target: 2, color:'red'},
+    {source: 0, target: 3, color:'gray'},
+    {source: 0, target: 4, color:'gray'},
+    {source: 1, target: 5, color:'gray'},
+    {source: 2, target: 5, color:'gray'},
+    {source: 2, target: 5, color:'gray'},
+    {source: 3, target: 4, color:'gray'},
+    {source: 5, target: 8, color:'gray'},
+    {source: 5, target: 9, color:'gray'},
+    {source: 6, target: 7, color:'gray'},
+    {source: 7, target: 8, color:'gray'},
+    {source: 8, target: 9, color:'gray'}
+    ],
+    transitions: [
+    {name: "a"},
+    {name: "b"},
+    {name: "a"},
+    {name: "b"},
+    {name: "a"},
+    {name: "b"},
+    {name: "a"},
+    {name: "b"},
+    {name: "a"},
+    {name: "b"},
+    {name: "a"},
+    {name: "b"},
+    {name: "a"}
     ]
     };
 
